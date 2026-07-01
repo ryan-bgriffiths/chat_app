@@ -1,0 +1,39 @@
+Client Implementation 
+You will client program client.py to connect to the server, specifying the hostname and port 
+number of the server to connect to. 
+• When the client program starts up, the client can issue any request (even unrecognizable ones) 
+to the server, but is expected to issue the JOIN request immediately with the client’s username 
+using alphanumeric characters so as to be able to use the services provided by the server. 
+• When desired, the client will send a LIST request to the server to see who is currently 
+subscribed to the service, but only the registered client will receive the listing (i.e., others will 
+receive an error message with JOIN request instructions). 
+• When desired, the client will send a MESG or BCST request to the server who will then relay 
+that message to an individual registered client or all registered clients, respectively. 
+• When desired, the client will send a LOG request to the server to check the history of messages 
+sent and received by the same client. 
+• The client may voluntarily leave the service at any time by issuing the QUIT request. 
+Your program (i.e., a server program) should run on the INET domain using SOCK_STREAM 
+(i.e., TCP) sockets so that the server and client execute on different ECS machines at the same 
+time. The server will accept the port number to communicate on as an argument to the server 
+program. Your code will handle errors appropriately, such as printing an error message, 
+disconnecting the client, or termination of the program. 
+3 
+CSC138 
+Computer Network Fundamentals 
+Summer 2026 
+Securing User Login (Optional Bonus Task ) 
+You can extend your project to include the below feature to earn up to 5 bonus points. The 
+following task will replace the “JOIN” command in your code with “REGISTER” and “LOGIN” 
+commands. Following are the requirements for securing user authentication. 
+Client-end Implementation Update 
+• The client must provide an interface that allows a new user to register by entering a 
+username and password. During login, the client must allow an existing user to enter their 
+username and password and send these credentials to the server for verification. 
+• The client should treat usernames exactly as entered by the user for display purposes, but 
+it must understand that the server will enforce uniqueness in a case-insensitive manner. 
+This means a user should not be able to create an account with a username that matches an 
+existing username in any letter case. 
+• The client must also display appropriate responses received from the server, such as 
+successful registration, successful login, invalid credentials, duplicate username, or 
+account lock notification. If the account is locked after repeated failed login attempts, the 
+client should inform the user that access is denied until the lockout period expires. 
