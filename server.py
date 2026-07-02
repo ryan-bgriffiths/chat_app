@@ -80,7 +80,7 @@ def mesg(command, client_socket, username, serverDir):
         destinationSocket = registeredClients[recipient]
         destinationSocket.send(updatedMessage.encode("ascii"))
         print(f"Message sent to {recipient}")
-        timestamp = datetime.now()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logMessage = "[" + timestamp + "] INFO:" + message
 
         with open(fileName, "a") as log:
@@ -94,6 +94,7 @@ def bcst(command, client_socket, username, serverDir):
     sender = username
     message = command[4:] #Remove bcst command 
     updatedMessage = sender + ":" + message #append sender username to start of bcst
+    fileName = os.path.join(serverDir, f"{username}.txt")
 
     if sender not in registeredClients:
         print("Broadcast denied: Unregistered sender") 
@@ -104,6 +105,12 @@ def bcst(command, client_socket, username, serverDir):
             if user != sender:
                 registered.send(updatedMessage.encode("ascii"))
     
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logMessage = "[" + timestamp + "] INFO:" + message
+
+    with open(fileName, "a") as log:
+        log.write(logMessage + "\n")
+
     return
 
 def log(command, client_socket, address, serverDir):
