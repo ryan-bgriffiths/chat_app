@@ -83,6 +83,7 @@ def mesg(command, client_socket, username, serverDir):
         destinationSocket = registeredClients[recipient]
         destinationSocket.send(updatedMessage.encode("ascii"))
         print(f"Message sent to {recipient}")
+        client_socket.send(command.encode("ascii"))
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logMessage = "[" + timestamp + "] INFO:" + message
 
@@ -104,6 +105,7 @@ def bcst(command, client_socket, username, serverDir):
         client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
         return 
     else:
+        client_socket.send(sender + " is sending a broadcast".encode("ascii"))
         for user, registered in registeredClients.items():
             if user != sender:
                 registered.send(updatedMessage.encode("ascii"))
