@@ -54,16 +54,16 @@ def list(client_socket, username):
 
     return
 
-def mesg(command, client_socket):
+def mesg(command, client_socket, username):
     # Registered client only - client issues MESG <username> 'followed by the message.' to other
     # registered client. Server relays to specified client.
     # Check registration(connection) request from unregistered = "Unregistered User" & JOIN inst. 
     # MESG to unregistered = "Unknown Recipient" back to client. 
-
+    
+    sender = username
     recipient = command.split()[1]
-    message = command.split()[2]
-
-    sender = client_socket.getpeername() 
+    message = command.partition(recipient)[2]
+    updatedMessage = sender + ":" + message
 
     if sender not in registeredClients:
         print("Message request denied: Unregistered sender")
@@ -75,16 +75,17 @@ def mesg(command, client_socket):
         return 
     else:
         destinationSocket = registeredClients[recipient]
-        destinationSocket.send(message.encode("ascii"))
+        destinationSocket.send(updatedMessage.encode("ascii"))
         print(f"Message sent to {recipient}")
 
     return
 
-def bcst(command, client_socket, address):
+def bcst(command, client_socket, username):
     # Broadcast msg to all other registered & not the sender. Must be reg to complete.
 
-    sender = client_socket.getpeername()
-    message = command.split()[1]
+    sender = username
+    message = command[4:] #Remove bcst command 
+    updatedMessage = sender + ":" + message #append sender username to start of bcst
 
     if sender not in registeredClients:
         print("Broadcast denied: Unregistered sender") 
@@ -93,7 +94,7 @@ def bcst(command, client_socket, address):
     else:
         for user, registered in registeredClients.items():
             if user != sender:
-                registered.send(message.encode("ascii"))
+                registered.send(updatedMessage.encode("ascii"))
     
     return
 
@@ -160,7 +161,7 @@ def threaded(client_socket, serverDir, address):
         #Message a registered clients
         elif command.startswith("MESG"):
 
-            mesg(command, client_socket)
+            mesg(command, client_socket, username)
 
         #Broadcast a message to all registered clients
         elif command.startswith("BCST"):
