@@ -113,11 +113,24 @@ def bcst(command, client_socket, username, serverDir):
 
     return
 
-def log(command, client_socket, address, serverDir):
+def log(command, client_socket, username, serverDir):
     # Client retreval of history of all msgs sent and received during thier session. 
     # format: timestamps, sender, receiver (if applicable), and message content.
     # Save per user files as txt. 
+    fileName = os.path.join(serverDir, f"{username}.txt")
+    
+    if username not in registeredClients:
+        print("Message Log denied: Unregistered Client")
+        client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
+        return
+    
+    else:
+        with open(fileName, "r") as log:
+            history = log.read()
 
+        client_socket.send(history.encode("ascii"))
+        print(f"Chat Log sent for {username}")
+        
     return 
 
 def idleTimer():
