@@ -67,7 +67,7 @@ def mesg(command, client_socket):
 
     if sender not in registeredClients:
         print("Message request denied: Unregistered sender")
-        client_socket.send("Unregistered User\nRegister via commnad: JOIN <username>".encode("ascii"))
+        client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
         return
     elif recipient not in registeredClients:
         print("Message not sent: Unknown recipient")
@@ -82,7 +82,20 @@ def mesg(command, client_socket):
 
 def bcst(command, client_socket, address):
     # Broadcast msg to all other registered & not the sender. Must be reg to complete.
-    return 
+
+    sender = client_socket.getpeername()
+    message = command.split()[1]
+
+    if sender not in registeredClients:
+        print("Broadcast denied: Unregistered sender") 
+        client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
+        return 
+    else:
+        for user, registered in registeredClients.items():
+            if user != sender:
+                registered.send(message.encode("ascii"))
+    
+    return
 
 def log(command, client_socket, address):
     # Client retreval of history of all msgs sent and received during thier session. 
