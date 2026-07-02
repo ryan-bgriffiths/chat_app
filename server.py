@@ -12,11 +12,14 @@ import threading        #For threading interface
 import os               #For operating sys interface
 
 #Global Variable to store addresses of registered clients
-registeredClients = []
+registeredClients = {} #key = username, value = client socket.
 
 lock = threading.Lock()
 
-def join(command, client_socket, address, username):
+def join(command, client_socket, address):
+
+    #Obtain the remote address to which the socket is connected 
+    address = client_socket.getpeername()
 
     username = command.split()[1]
 
@@ -30,19 +33,19 @@ def join(command, client_socket, address, username):
             client_socket.send("Too Many Users".encode("ascii"))
             return False
         else:
-            registeredClients.append(username)
+            registeredClients[username] = client_socket
             print(f"Registered user-{username}. Address-{address}.")
             client_socket.send(f"User registered as {username}. ".encode("ascii"))
             return True
 
     return
 
-def list(command, client_socket, username):
+def list(client_socket, username):
     # Registered client only - send a list of all registered clients on individual lines.
     # return the list as a full block. 
 
     if username is None:
-        client_socket.send("Error: Not registered.".ecnode("ascii"))
+        client_socket.send("Error: Not registered.".encode("ascii"))
     else:
         listOfClients = ""
         for client in registeredClients:
@@ -51,11 +54,30 @@ def list(command, client_socket, username):
 
     return
 
-def mesg(command, client_socket, address):
+def mesg(command, client_socket):
     # Registered client only - client issues MESG <username> 'followed by the message.' to other
     # registered client. Server relays to specified client.
     # Check registration(connection) request from unregistered = "Unregistered User" & JOIN inst. 
     # MESG to unregistered = "Unknown Recipient" back to client. 
+
+    recipient = command.split()[1]
+    message = command.split()[2]
+
+    sender = client_socket.getpeername() 
+
+    if sender not in registeredClients:
+        print("Message request denied: Unregistered sender")
+        client_socket.send("Unregistered User\nRegister via commnad: JOIN <username>".encode("ascii"))
+        return
+    elif recipient not in registeredClients:
+        print("Message not sent: Unknown recipient")
+        client_socket.send("Unknown Recipient".encode("ascii"))
+        return 
+    else:
+        destinationSocket = registeredClients[recipient]
+        destinationSocket.send(message.encode("ascii"))
+        print(f"Message sent to {recipient}")
+
     return
 
 def bcst(command, client_socket, address):
@@ -77,9 +99,6 @@ def idleTimer():
 # Function to handle program threading
 # Responsible for receiving commands from the individual threads 
 def threaded(client_socket, serverDir, address):
-
-    #Obtain the remote address to which the socket is connected 
-    address = client_socket.getpeername()
 
     username = None
     
@@ -104,7 +123,7 @@ def threaded(client_socket, serverDir, address):
         if command.startswith('QUIT'):
             if username in registeredClients:
                 with lock:
-                    registeredClients.remove(username)
+                    del registeredClients[username]
                     print(f"Connection closed for {address}")
                     client_socket.close()
                     return
@@ -114,7 +133,7 @@ def threaded(client_socket, serverDir, address):
         
         #Join the chat server if not already registered
         elif command.startswith("JOIN"):
-            if not join(command, client_socket, address, username):
+            if not join(command, client_socket, address):
                 client_socket.close()
                 return
             else:
@@ -123,22 +142,22 @@ def threaded(client_socket, serverDir, address):
         #List all registered clients in chat server upon receipt of the LIST command
         elif command.startswith("LIST"):
             
-            list(command, client_socket, username)
+            list(client_socket, username)
 
         #Message a registered clients
         elif command.startswith("MESG"):
 
-            mesg(command, client_socket, address, username)
+            mesg(command, client_socket)
 
         #Broadcast a message to all registered clients
         elif command.startswith("BCST"):
 
-            bcst(command, client_socket, address, username)
+            bcst(command, client_socket, username)
             
         #List history of all messages sent and received upon receipt of LOG command
         elif command.startswith("LOG"):
             
-            log(command, client_socket, address, username)
+            log(command, client_socket, username)
 
         #Send error message for any invalid commands
         else: 
