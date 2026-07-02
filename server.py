@@ -39,6 +39,8 @@ def join(command, client_socket, address, serverDir):
             print(f"Registered user-{username}. Address-{address}.")
             client_socket.send(f"User registered as {username}. ".encode("ascii"))
             fileName = os.path.join(serverDir, f"{username}.txt")
+            with open(fileName, "a"):
+                pass
             return True
 
     return
@@ -170,8 +172,8 @@ def threaded(client_socket, serverDir, address):
                     with lock:
                         del registeredClients[username]
                         print(f"Connection closed for {address}")
-                        client_socket.close()
-                        return
+                        #Add notification of user leaving to other users
+                        break
                 else:
                     print(f"Connection closed for {address}")
                     break
@@ -210,7 +212,7 @@ def threaded(client_socket, serverDir, address):
 
         except timeout:
             if time.time() - lastActivity >= 60:
-                print(f"{username}'s session is terminated due to inactivity.")
+                print(f"{username}'s session is terminated due to inactivity for 10 seconds.")
 
                 if username in registeredClients:
                     with lock:
@@ -219,7 +221,8 @@ def threaded(client_socket, serverDir, address):
                 client_socket.send("Disconnected due to inactivity.\nGoodbye.".encode("ascii"))
                 
                 for user, registered in registeredClients.items():
-                    registered.send(f"{username} disconnected due to inactivity.".encode("ascii"))
+                    if user != username:
+                        registered.send(f"{username} was disconnected due to inactivity.".encode("ascii"))
                 break
 
 

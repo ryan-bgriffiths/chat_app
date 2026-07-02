@@ -22,13 +22,22 @@ def list(sentence, serverSocket):
     print(response.decode("ascii"))
     return 
 
-def mesg(sentence):
+def mesg(sentence, serverSocket):
+    serverSocket.send(sentence.encode("ascii"))
+    response = serverSocket.recv(1024)
+    print(response.decode("ascii"))
     return
 
-def bcst(sentence):
+def bcst(sentence, serverSocket):
+    serverSocket.send(sentence.encode("ascii"))
+    response = serverSocket.recv(1024)
+    print(response.decode("ascii"))
     return 
 
-def log(sentence):
+def log(sentence, serverSocket):
+    serverSocket.send(sentence.encode("ascii"))
+    response = serverSocket.recv(4096)
+    print(response.decode("ascii"))
     return
 
 def main():
@@ -56,7 +65,7 @@ def main():
         sys.exit(1)
 
     #Get user input/commands 
-    sentence = input("Enter command (LIST, GET filename, QUIT) : ").strip()
+    sentence = input("Enter JOIN followed by your username: ").strip()
 
     #Loop until the user enters QUIT
     while sentence.upper() != "QUIT":
@@ -75,19 +84,19 @@ def main():
             case "LOG":
                 log(sentence, serverSocket)
             case _: #Default-invalid command
-                print("Invalid command. Use LIST, GET <filename>, or QUIT.")
+                print("Invalid command. Use JOIN <username>, LIST, MESG <username> <message>," \
+                "BCST <message>, LOG, or QUIT.")
 
         #Prompt for user input        
-        sentence = input("Enter command (LIST, GET file, QUIT) : ").strip() 
+        sentence = input("").strip() 
 
     #Send QUIT to the server if entered by the user
     serverSocket.send("QUIT".encode('ascii'))
 
+    #add received quit message and output then close the connection
+
     #Close the connection 
     serverSocket.close()
-
-    #Output verification of closed connection
-    print("Connection terminated.")
 
 #End main()
 
