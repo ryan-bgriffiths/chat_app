@@ -10,119 +10,86 @@ from socket import *    #For socket interface
 import sys              #For command line args 
 import os               #For operating sys interface 
 
-#Validate command line argument provided, output usage upon discrepency and exit 
-if len(sys.argv) != 3:
-    print("Usage: python client.py <Address> <Port Number>")
-    sys.exit(1)
+def join(sentence, serverSocket):
+    serverSocket.send(sentence.encode("ascii"))
+    response = serverSocket.recv(1024)
+    print(response.decode("ascii"))
+    return
 
-#Save the provided server name 
-serverName = sys.argv[1]
+def list(sentence, serverSocket):
+    serverSocket.send(sentence.encode("ascii"))
+    response = serverSocket.recv(1024)
+    print(response.decode("ascii"))
+    return 
 
-#Save the provided port number 
-serverPort = int(sys.argv[2])
+def mesg(sentence):
+    return
 
-#Setup the socket and try to connect to the server
-serverSocket = socket(AF_INET, SOCK_STREAM)
+def bcst(sentence):
+    return 
 
-try:
-    serverSocket.connect((serverName,serverPort))
-    print(f"Connected to server {serverName}:{serverPort}")
-#Handle if unable to connect
-except:
-    print("Could not connect to the server.")
-    sys.exit(1)
+def log(sentence):
+    return
 
-#Get user input/commands 
-sentence = input("Enter command (LIST, GET filename, QUIT) : ").strip()
-
-#Loop until the user enters QUIT
-while sentence.upper() != "QUIT":
+def main():
     
-    #LIST
-    if sentence.upper().startswith("LIST"):
-        
-        #Send the LIST command to the server
-        serverSocket.send(sentence.upper().encode('ascii'))
+    #Validate command line argument provided, output usage upon discrepency and exit 
+    if len(sys.argv) != 3:
+        print("Usage: python client.py <Address> <Port Number>")
+        sys.exit(1)
 
-        #Save the response from the server 
-        received = serverSocket.recv(1024)
+    #Save the provided server name 
+    serverName = sys.argv[1]
 
-        #Output the returned list of files 
-        print("Files on server : ", str(received.decode('ascii')))
-   
-    #GET     
-    elif sentence.upper().startswith("GET"):
+    #Save the provided port number 
+    serverPort = int(sys.argv[2])
 
-        #Save the file name
-        parts = sentence.split()
-        fileName = parts[1]
+    #Setup the socket and try to connect to the server
+    serverSocket = socket(AF_INET, SOCK_STREAM)
 
-        #Send the command to the server
-        serverSocket.send((parts[0].upper() + " " + parts[1]).encode('ascii'))
+    try:
+        serverSocket.connect((serverName,serverPort))
+        print(f"Connected to server {serverName}:{serverPort}")
+    #Handle if unable to connect
+    except:
+        print("Could not connect to the server.")
+        sys.exit(1)
 
-        #Save the response from the server
-        response = serverSocket.recv(1024).decode('ascii')
+    #Get user input/commands 
+    sentence = input("Enter command (LIST, GET filename, QUIT) : ").strip()
 
-        #Split the response to obtain the file size later
-        parts = response.split()
+    #Loop until the user enters QUIT
+    while sentence.upper() != "QUIT":
+    
+        command = sentence.split()[0]
 
-        #Handle a return value of Error
-        if response.startswith("Error"):
-            print(response)
+        match command.upper():
+            case "JOIN":
+                join(sentence, serverSocket)
+            case "LIST":
+                list(sentence, serverSocket)
+            case "MESG":
+                mesg(sentence, serverSocket)
+            case "BCST":
+                bcst(sentence, serverSocket)
+            case "LOG":
+                log(sentence, serverSocket)
+            case _: #Default-invalid command
+                print("Invalid command. Use LIST, GET <filename>, or QUIT.")
 
-        else:
-            fileSize = int(parts[1])
-        
-            directory = "client_files"
-            
-            #Create a directory to store the file if there is not one already
-            if not os.path.isdir(directory):
-                os.makedirs(directory)
+        #Prompt for user input        
+        sentence = input("Enter command (LIST, GET file, QUIT) : ").strip() 
 
-            #Ensure the full path is saved 
-            path = os.path.join(directory, fileName)
+    #Send QUIT to the server if entered by the user
+    serverSocket.send("QUIT".encode('ascii'))
 
-            #Open a file to write to in binary mode
-            with open(path, "wb") as f:
-                
-                #Track the length of the chuck received 
-                received = 0
+    #Close the connection 
+    serverSocket.close()
 
-                #Loop to get all chunks of file 
-                while received < fileSize:
-                    
-                    #Save a file chunk from the server 
-                    chunk = serverSocket.recv(1024)
-                    
-                    #Exit the loop if there is nothing left in the file
-                    if not chunk:
-                        break
-                    
-                    #Write the content of the chunk to the file 
-                    f.write(chunk)
-                    
-                    #Increase the count of received 
-                    received += len(chunk)
+    #Output verification of closed connection
+    print("Connection terminated.")
 
-            #Output verification of successful download
-            print(f"File '{fileName}' downloaded successfully")
+#End main()
 
-            #Output file path 
-            print(f"Saved to: {path}")
-
-    #Handle and output usage upon input of invalid commands 
-    else:
-        print("Invalid command. Use LIST, GET <filename>, or QUIT.")
-
-    #Prompt for user input        
-    sentence = input("Enter command (LIST, GET file, QUIT) : ").strip() 
-
-#Send QUIT to the server if entered by the user
-serverSocket.send("QUIT".encode('ascii'))
-
-#Close the connection 
-serverSocket.close()
-
-#Output verification of closed connection
-print("Connection terminated.")
-
+if __name__ == '__main__':
+    main()

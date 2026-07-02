@@ -11,94 +11,141 @@ from socket import *    #For socket interface
 import threading        #For threading interface 
 import os               #For operating sys interface
 
+#Global Variable to store addresses of registered clients
+registeredClients = []
+
+lock = threading.Lock()
+
+def join(command, client_socket, address, username):
+
+    username = command.split()[1]
+
+    with lock:
+        #Already registed - send response 
+        if username in registeredClients:
+            client_socket.send("Already registered".encode("ascii"))
+            return False
+        #Server is full - send response 
+        elif len(registeredClients) >= 10:
+            client_socket.send("Too Many Users".encode("ascii"))
+            return False
+        else:
+            registeredClients.append(username)
+            print(f"Registered user-{username}. Address-{address}.")
+            client_socket.send(f"User registered as {username}. ".encode("ascii"))
+            return True
+
+    return
+
+def list(command, client_socket, username):
+    # Registered client only - send a list of all registered clients on individual lines.
+    # return the list as a full block. 
+
+    if username is None:
+        client_socket.send("Error: Not registered.".ecnode("ascii"))
+    else:
+        listOfClients = ""
+        for client in registeredClients:
+            listOfClients += client + "\n"
+        client_socket.send(listOfClients.encode("ascii"))
+
+    return
+
+def mesg(command, client_socket, address):
+    # Registered client only - client issues MESG <username> 'followed by the message.' to other
+    # registered client. Server relays to specified client.
+    # Check registration(connection) request from unregistered = "Unregistered User" & JOIN inst. 
+    # MESG to unregistered = "Unknown Recipient" back to client. 
+    return
+
+def bcst(command, client_socket, address):
+    # Broadcast msg to all other registered & not the sender. Must be reg to complete.
+    return 
+
+def log(command, client_socket, address):
+    # Client retreval of history of all msgs sent and received during thier session. 
+    # format: timestamps, sender, receiver (if applicable), and message content.
+    # Save per user files as txt. 
+    return 
+
+def idleTimer():
+    # 1 min idle timer for client, disconnect if no commands received.
+    # Release all connected resources(txt) and norify other users in chat. 
+    # warning or log msg displayed on server console upon client removal for inactivity.
+    return
+
 # Function to handle program threading
 # Responsible for receiving commands from the individual threads 
-def threaded(client_socket, serverDir, semaphore):
+def threaded(client_socket, serverDir, address):
 
-    try:
-        #Enter a loop to receive different commands
-        while True:
+    #Obtain the remote address to which the socket is connected 
+    address = client_socket.getpeername()
 
-            #Save the response from the client
-            data = client_socket.recv(1024)
+    username = None
+    
+    #Enter a loop to receive different commands
+    while True:
+            
+        #Save the response from the client
+        data = client_socket.recv(1024)
         
-            #Disconnect upon bad response
-            if not data:
-                print('Disconnecting')
-                break
+        #Disconnect upon bad response
+        if not data:
+            print('Disconnecting')
+            break
 
-            #Decode the response to save the entered command
-            command = data.decode('ascii')
+        #Decode the response to save the entered command
+        command = data.decode('ascii').strip()
 
-            #Obtain the remote address to which the socket is connected 
-            address = client_socket.getpeername()
+        #Output verification of receipt
+        print(f"Received from {address}: {command}")
 
-            #Output verification of receipt
-            print(f"Received from {address}: {command}")
-
-            #Close the connection if the client sends the QUIT command
-            if command.startswith('QUIT'):
+        #Close the connection for registered client upon QUIT command
+        if command.startswith('QUIT'):
+            if username in registeredClients:
+                with lock:
+                    registeredClients.remove(username)
+                    print(f"Connection closed for {address}")
+                    client_socket.close()
+                    return
+            else:
                 print(f"Connection closed for {address}")
                 break
+        
+        #Join the chat server if not already registered
+        elif command.startswith("JOIN"):
+            if not join(command, client_socket, address, username):
+                client_socket.close()
+                return
+            else:
+                username = command.split()[1]
 
-            #List all files in the directory upon receipt of the LIST command
-            elif command.startswith("LIST"):
+        #List all registered clients in chat server upon receipt of the LIST command
+        elif command.startswith("LIST"):
             
-                #Save the list of names returned of the entries in the directory 
-                files = os.listdir(serverDir)
+            list(command, client_socket, username)
 
-                #Send a list of all files in the directory to the client
-                client_socket.send(", ".join(files).encode('ascii'))
+        #Message a registered clients
+        elif command.startswith("MESG"):
+
+            mesg(command, client_socket, address, username)
+
+        #Broadcast a message to all registered clients
+        elif command.startswith("BCST"):
+
+            bcst(command, client_socket, address, username)
             
-            #Read the specified file upon receipt of the GET command 
-            elif command.startswith("GET"):
+        #List history of all messages sent and received upon receipt of LOG command
+        elif command.startswith("LOG"):
             
-                #Split the received command to separate the file name 
-                parts = command.split() 
-                fileName = parts[1]
+            log(command, client_socket, address, username)
 
-                #Ensure the full file path is saved
-                path = os.path.join(serverDir, fileName)
+        #Send error message for any invalid commands
+        else: 
+            client_socket.send("Error: Invalid command.".encode('ascii'))
 
-                #Validate the file path is within the directory
-                if os.path.isfile(path) != True:
+    #End while
 
-                    #Output an error message if the file is not found
-                    message = f"Error : File {fileName} not found."
-                    client_socket.send(message.encode('ascii'))
-            
-                #Read from the specified file
-                else:
-                    #Send confirmation along with file size to the client 
-                    message = "Okay " + str(os.path.getsize(path))
-                    client_socket.send(message.encode('ascii'))
-
-                    #Open the file to read in binary mode 
-                    f = open(path, "rb")
-                
-                    #Read chunks from the file and send to the client until eof 
-                    while True:
-                        #Binary mode
-                        chunk = f.read(1024)
-                        if not chunk:
-                            break
-                        client_socket.sendall(chunk)
-                
-                    #Close the file 
-                    f.close()
-
-                    #Output verification of sent file 
-                    print(f"Sent file '{fileName}' to {address}")   
-
-            #Send error message for any invalid commands
-            else: 
-                client_socket.send("Error: Invalid command.".encode('ascii'))
-
-        #End while
-
-    finally:
-        semaphore.realease() 
-    
     #Close the socket and return from the function
     client_socket.close()
 
@@ -132,8 +179,6 @@ def tcp_server(port):
 
     #Try to connect to a client
     try:
-        semaphore = threading.Semaphore(10)
-
         #Enter an infinite loop to wait for clients to connect
         while True:
             #Wait for a client to connect
@@ -144,14 +189,11 @@ def tcp_server(port):
                 #Output verification of connected client 
                 print(f"Connected by {address}")
 
-                if semaphore.acquire(blocking = False):
-                    #Create a thread for the client and pass the client's socket 
-                    thread1 = threading.Thread(target = threaded, args=(client_socket, serverDir, semaphore))
-                    #Start the new thread and handoff, then loop to wait for another client
-                    thread1.start()
-                else:
-                    client_socket.send("Server full.")
-                    client_socket.close()
+                #Create a thread for the client and pass the client's socket 
+                thread1 = threading.Thread(target = threaded, args=(client_socket, serverDir, address))
+                
+                #Start the new thread and handoff, then loop to wait for another client
+                thread1.start()
 
             #Upon timeout loop back and wait for a client
             except timeout:
