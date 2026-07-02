@@ -11,6 +11,7 @@ from socket import *    #For socket interface
 import threading        #For threading interface 
 import os               #For operating sys interface
 from datetime import datetime
+import time 
 
 #Global Variable to store addresses of registered clients
 registeredClients = {} #key = username, value = client socket.
@@ -130,83 +131,100 @@ def log(command, client_socket, username, serverDir):
 
         client_socket.send(history.encode("ascii"))
         print(f"Chat Log sent for {username}")
-        
-    return 
 
-def idleTimer():
-    # 1 min idle timer for client, disconnect if no commands received.
-    # Release all connected resources(txt) and norify other users in chat. 
-    # warning or log msg displayed on server console upon client removal for inactivity.
-    return
+    return 
 
 # Function to handle program threading
 # Responsible for receiving commands from the individual threads 
 def threaded(client_socket, serverDir, address):
 
     username = None
+
+    client_socket.settimeout(1)
+    lastActivity = time.time()
     
     #Enter a loop to receive different commands
     while True:
+
+        try:
             
-        #Save the response from the client
-        data = client_socket.recv(1024)
+            #Save the response from the client
+            data = client_socket.recv(1024)
         
-        #Disconnect upon bad response
-        if not data:
-            print('Disconnecting')
-            break
+            #Disconnect upon bad response
+            if not data:
+                print('Disconnecting')
+                break
 
-        #Decode the response to save the entered command
-        command = data.decode('ascii').strip()
+            lastActivity = time.time()
 
-        #Output verification of receipt
-        print(f"Received from {address}: {command}")
+            #Decode the response to save the entered command
+            command = data.decode('ascii').strip()
 
-        #Close the connection for registered client upon QUIT command
-        if command.startswith('QUIT'):
-            if username in registeredClients:
-                with lock:
-                    del registeredClients[username]
+            #Output verification of receipt
+            print(f"Received from {address}: {command}")
+
+            #Close the connection for registered client upon QUIT command
+            if command.startswith('QUIT'):
+                if username in registeredClients:
+                    with lock:
+                        del registeredClients[username]
+                        print(f"Connection closed for {address}")
+                        client_socket.close()
+                        return
+                else:
                     print(f"Connection closed for {address}")
+                    break
+        
+            #Join the chat server if not already registered
+            elif command.startswith("JOIN"):
+                if not join(command, client_socket, address, serverDir):
                     client_socket.close()
                     return
-            else:
-                print(f"Connection closed for {address}")
+                else:
+                    username = command.split()[1]
+
+            #List all registered clients in chat server upon receipt of the LIST command
+            elif command.startswith("LIST"):
+            
+                list(client_socket, username)
+
+            #Message a registered clients
+            elif command.startswith("MESG"):
+
+                mesg(command, client_socket, username, serverDir)
+
+            #Broadcast a message to all registered clients
+            elif command.startswith("BCST"):
+
+                bcst(command, client_socket, username, serverDir)
+            
+            #List history of all messages sent and received upon receipt of LOG command
+            elif command.startswith("LOG"):
+            
+                log(command, client_socket, username, serverDir)
+
+            #Send error message for any invalid commands
+            else: 
+                client_socket.send("Error: Invalid command.".encode('ascii'))
+
+        except timeout:
+            if time.time() - lastActivity >= 60:
+                print(f"{username}'s session is terminated due to inactivity.")
+
+                if username in registeredClients:
+                    with lock:
+                        del registeredClients[username]
+
+                client_socket.send("Disconnected due to inactivity.\nGoodbye.".encode("ascii"))
+                
+                for user, registered in registeredClients.items():
+                    registered.send(f"{username} disconnected due to inactivity.".encode("ascii"))
                 break
-        
-        #Join the chat server if not already registered
-        elif command.startswith("JOIN"):
-            if not join(command, client_socket, address, serverDir):
-                client_socket.close()
-                return
-            else:
-                username = command.split()[1]
 
-        #List all registered clients in chat server upon receipt of the LIST command
-        elif command.startswith("LIST"):
-            
-            list(client_socket, username)
 
-        #Message a registered clients
-        elif command.startswith("MESG"):
 
-            mesg(command, client_socket, username, serverDir)
-
-        #Broadcast a message to all registered clients
-        elif command.startswith("BCST"):
-
-            bcst(command, client_socket, username, serverDir)
-            
-        #List history of all messages sent and received upon receipt of LOG command
-        elif command.startswith("LOG"):
-            
-            log(command, client_socket, username, serverDir)
-
-        #Send error message for any invalid commands
-        else: 
-            client_socket.send("Error: Invalid command.".encode('ascii'))
-
-    #End while
+        #End while
 
     #Close the socket and return from the function
     client_socket.close()
