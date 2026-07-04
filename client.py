@@ -9,35 +9,42 @@
 from socket import *    #For socket interface 
 import sys              #For command line args 
 import os               #For operating sys interface 
+import threading 
+
+def receiveMessages(serverSocket):
+    while True:
+        try:
+            response = serverSocket.recv(1024)
+
+            if not response:
+                os._exit(0)
+                break
+
+            print(response.decode("ascii"))
+
+        except:
+            break
+
+    return
 
 def join(sentence, serverSocket):
     serverSocket.send(sentence.encode("ascii"))
-    response = serverSocket.recv(1024)
-    print(response.decode("ascii"))
     return
 
 def list(sentence, serverSocket):
     serverSocket.send(sentence.encode("ascii"))
-    response = serverSocket.recv(1024)
-    print(response.decode("ascii"))
     return 
 
 def mesg(sentence, serverSocket):
     serverSocket.send(sentence.encode("ascii"))
-    response = serverSocket.recv(1024)
-    print(response.decode("ascii"))
     return
 
 def bcst(sentence, serverSocket):
     serverSocket.send(sentence.encode("ascii"))
-    response = serverSocket.recv(1024)
-    print(response.decode("ascii"))
     return 
 
 def log(sentence, serverSocket):
     serverSocket.send(sentence.encode("ascii"))
-    response = serverSocket.recv(4096)
-    print(response.decode("ascii"))
     return
 
 def main():
@@ -63,6 +70,10 @@ def main():
     except:
         print("Could not connect to the server.")
         sys.exit(1)
+
+    receiverThread = threading.Thread(target=receiveMessages, args=(serverSocket,))
+    receiverThread.daemon = True
+    receiverThread.start()
 
     #Get user input/commands 
     sentence = input("Enter JOIN followed by your username: ").strip()

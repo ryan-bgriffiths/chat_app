@@ -36,8 +36,8 @@ def join(command, client_socket, address, serverDir):
             return False
         else:
             registeredClients[username] = client_socket
-            print(f"Registered user-{username}. Address-{address}.")
-            client_socket.send(f"User registered as {username}. ".encode("ascii"))
+            print(f"{username} Joined the Chatroom")
+            client_socket.send(f"{username} joined! Connected to server!".encode("ascii"))
             fileName = os.path.join(serverDir, f"{username}.txt")
             with open(fileName, "a"):
                 pass
@@ -54,7 +54,7 @@ def list(client_socket, username):
     else:
         listOfClients = ""
         for client in registeredClients:
-            listOfClients += client + "\n"
+            listOfClients += client
         client_socket.send(listOfClients.encode("ascii"))
 
     return
@@ -65,17 +65,24 @@ def mesg(command, client_socket, username, serverDir):
     # Check registration(connection) request from unregistered = "Unregistered User" & JOIN inst. 
     # MESG to unregistered = "Unknown Recipient" back to client. 
     
-    sender = username
-    recipient = command.split()[1]
-    message = command.partition(recipient)[2]
-    updatedMessage = sender + ":" + message
-    fileName = os.path.join(serverDir, f"{username}.txt")
-
-    if sender not in registeredClients:
+    if username not in registeredClients:
         print("Message request denied: Unregistered sender")
         client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
         return
-    elif recipient not in registeredClients:
+    
+    parts = command.split()
+
+    if len(parts) < 3:
+        client_socket.send("Error: Invalid format.\nUsage: MESG <username> <message>")
+        return
+
+    sender = username
+    recipient = command.split()[1]
+    message = command.partition(recipient)[2].strip()
+    updatedMessage = sender + ": " + message
+    fileName = os.path.join(serverDir, f"{username}.txt")
+
+    if recipient not in registeredClients:
         print("Message not sent: Unknown recipient")
         client_socket.send("Unknown Recipient".encode("ascii"))
         return 
@@ -105,10 +112,10 @@ def bcst(command, client_socket, username, serverDir):
         client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
         return 
     else:
-        client_socket.send(sender + " is sending a broadcast".encode("ascii"))
         for user, registered in registeredClients.items():
-            if user != sender:
+            if user not in registeredClients:
                 registered.send(updatedMessage.encode("ascii"))
+        client_socket.send((sender + " is sending a broadcast\n" + updatedMessage).encode("ascii"))
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logMessage = "[" + timestamp + "] INFO:" + message
@@ -214,13 +221,12 @@ def threaded(client_socket, serverDir, address):
 
         except timeout:
             if time.time() - lastActivity >= 60:
-                print(f"{username}'s session is terminated due to inactivity for 10 seconds.")
-
+                print(f"{username}'s session is terminated due to inactivity for 1 minute.")
+                client_socket.send("Disconnected due to inactivity.\nGoodbye.".encode("ascii"))
+                
                 if username in registeredClients:
                     with lock:
                         del registeredClients[username]
-
-                client_socket.send("Disconnected due to inactivity.\nGoodbye.".encode("ascii"))
                 
                 for user, registered in registeredClients.items():
                     if user != username:
@@ -272,7 +278,7 @@ def tcp_server(port):
                 client_socket, address = server_socket.accept()
 
                 #Output verification of connected client 
-                print(f"Connected by {address}")
+                print(f"Connected with {address}")
 
                 #Create a thread for the client and pass the client's socket 
                 thread1 = threading.Thread(target = threaded, args=(client_socket, serverDir, address))
