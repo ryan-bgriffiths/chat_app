@@ -108,7 +108,7 @@ def bcst(command, client_socket, username, serverDir):
     # Broadcast msg to all other registered & not the sender. Must be reg to complete.
 
     sender = username
-    message = command[4:] #Remove bcst command 
+    message = command[4:].strip() #Remove bcst command 
     updatedMessage = sender + ":" + message #append sender username to start of bcst
     senderFile = os.path.join(serverDir, f"{sender}.txt")
 
@@ -116,11 +116,8 @@ def bcst(command, client_socket, username, serverDir):
         print("Broadcast denied: Unregistered sender") 
         client_socket.send("Unregistered User\nRegister via command: JOIN <username>".encode("ascii"))
         return 
-    else:
-        for user, registered in registeredClients.items():
-            if user != sender:
-                registered.send(updatedMessage.encode("ascii"))
-        client_socket.send((sender + " is sending a broadcast\n" + updatedMessage).encode("ascii"))
+    
+    client_socket.send((sender + " is sending a broadcast\n" + updatedMessage).encode("ascii"))
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     senderLog = (f"[{timestamp}] INFO: Broadcast sent by {sender} - \"{message}\"")
@@ -131,7 +128,7 @@ def bcst(command, client_socket, username, serverDir):
     for user, registered in registeredClients.items():
         if user != sender:
             registered.send(updatedMessage.encode("ascii"))
-            recipientFile = os.path.join(serverDir, f"{username}.txt")
+            recipientFile = os.path.join(serverDir, f"{user}.txt")
             recipientLog = (f"[{timestamp}] INFO: Broadcast received by {user} from {sender} - \"{message}\"")
             with open(recipientFile, "a") as log:
                 log.write(recipientLog + "\n")
@@ -193,10 +190,17 @@ def threaded(client_socket, serverDir, address):
                 if username in registeredClients:
                     with lock:
                         del registeredClients[username]
-                        print(f"Connection closed for {address}")
-                        #Add notification of user leaving to other users
-                        break
-                else:
+                        otherUsers = registeredClients.copy().items()
+
+                    print(f"Connection closed for {address}")
+
+                    for user, registered in otherUsers:
+                        try:
+                            registered.send(f"{username} left".encode("ascii"))
+                        except:
+                            pass
+                    break
+                else: 
                     print(f"Connection closed for {address}")
                     break
         

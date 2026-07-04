@@ -18,9 +18,8 @@ def receiveMessages(serverSocket):
 
             if not response:
                 os._exit(0)
-                break
 
-            print(response.decode("ascii"))
+            print("\n" + response.decode("ascii"))
 
         except:
             break
@@ -77,6 +76,8 @@ def main():
 
     #Get user input/commands 
     sentence = input("Enter JOIN followed by your username: ").strip()
+    
+    username = None
 
     #Loop until the user enters QUIT
     while sentence.upper() != "QUIT":
@@ -89,6 +90,7 @@ def main():
 
         match command.upper():
             case "JOIN":
+                username = sentence.split()[1].strip()
                 join(sentence, serverSocket)
             case "LIST":
                 list(sentence, serverSocket)
@@ -108,7 +110,8 @@ def main():
     #Send QUIT to the server if entered by the user
     serverSocket.send("QUIT".encode('ascii'))
 
-    #add received quit message and output then close the connection
+    print(f"{username} is quitting the chat server")
+   
 
     #Close the connection 
     serverSocket.close()
