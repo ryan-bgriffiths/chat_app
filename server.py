@@ -28,8 +28,8 @@ def join(command, client_socket, address, serverDir):
     with lock:
         #Already registed - send response 
         if username in registeredClients:
-            client_socket.send("Already registered".encode("ascii"))
-            return False
+            client_socket.send("Already registered, enter next command".encode("ascii"))
+            return True
         #Server is full - send response 
         elif len(registeredClients) >= 10:
             client_socket.send("Too Many Users".encode("ascii"))
@@ -52,9 +52,7 @@ def list(client_socket, username):
     if username is None:
         client_socket.send("Error: Not registered.".encode("ascii"))
     else:
-        listOfClients = ""
-        for client in registeredClients:
-            listOfClients += client
+        listOfClients = ",".join(registeredClients.keys())
         client_socket.send(listOfClients.encode("ascii"))
 
     return
@@ -73,14 +71,15 @@ def mesg(command, client_socket, username, serverDir):
     parts = command.split()
 
     if len(parts) < 3:
-        client_socket.send("Error: Invalid format.\nUsage: MESG <username> <message>")
+        client_socket.send("Error: Invalid format.\nUsage: MESG <username> <message>".encode("ascii"))
         return
 
     sender = username
     recipient = command.split()[1]
     message = command.partition(recipient)[2].strip()
     updatedMessage = sender + ": " + message
-    fileName = os.path.join(serverDir, f"{username}.txt")
+    senderFile = os.path.join(serverDir, f"{username}.txt")
+    recipientFile = os.path.join(serverDir, f"{recipient}.txt")
 
     if recipient not in registeredClients:
         print("Message not sent: Unknown recipient")
@@ -89,13 +88,19 @@ def mesg(command, client_socket, username, serverDir):
     else:
         destinationSocket = registeredClients[recipient]
         destinationSocket.send(updatedMessage.encode("ascii"))
+
         print(f"Message sent to {recipient}")
         client_socket.send(command.encode("ascii"))
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logMessage = "[" + timestamp + "] INFO:" + message
 
-        with open(fileName, "a") as log:
-            log.write(logMessage + "\n")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        senderLog = (f"[{timestamp}] INFO: Message sent by {sender} to {recipient} - \"{message}\"")
+        recipientLog = (f"[{timestamp}] INFO: Message received by {recipient} from {sender} - \"{message}\"")
+
+        with open(senderFile, "a") as log:
+            log.write(senderLog + "\n")
+
+        with open(recipientFile, "a") as log:
+            log.write(recipientLog + "\n")
 
     return
 
@@ -105,7 +110,7 @@ def bcst(command, client_socket, username, serverDir):
     sender = username
     message = command[4:] #Remove bcst command 
     updatedMessage = sender + ":" + message #append sender username to start of bcst
-    fileName = os.path.join(serverDir, f"{username}.txt")
+    senderFile = os.path.join(serverDir, f"{sender}.txt")
 
     if sender not in registeredClients:
         print("Broadcast denied: Unregistered sender") 
@@ -113,15 +118,23 @@ def bcst(command, client_socket, username, serverDir):
         return 
     else:
         for user, registered in registeredClients.items():
-            if user not in registeredClients:
+            if user != sender:
                 registered.send(updatedMessage.encode("ascii"))
         client_socket.send((sender + " is sending a broadcast\n" + updatedMessage).encode("ascii"))
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logMessage = "[" + timestamp + "] INFO:" + message
+    senderLog = (f"[{timestamp}] INFO: Broadcast sent by {sender} - \"{message}\"")
 
-    with open(fileName, "a") as log:
-        log.write(logMessage + "\n")
+    with open(senderFile, "a") as log:
+        log.write(senderLog + "\n")
+
+    for user, registered in registeredClients.items():
+        if user != sender:
+            registered.send(updatedMessage.encode("ascii"))
+            recipientFile = os.path.join(serverDir, f"{username}.txt")
+            recipientLog = (f"[{timestamp}] INFO: Broadcast received by {user} from {sender} - \"{message}\"")
+            with open(recipientFile, "a") as log:
+                log.write(recipientLog + "\n")
 
     return
 
@@ -233,7 +246,13 @@ def threaded(client_socket, serverDir, address):
                         registered.send(f"{username} was disconnected due to inactivity.".encode("ascii"))
                 break
 
+        except ConnectionResetError:
+            print(f"Client {address} disconnected unexpectedly.")
 
+            if username in registeredClients:
+                with lock:
+                    del registeredClients[username]
+            break
 
         #End while
 

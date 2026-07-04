@@ -81,6 +81,10 @@ def main():
     #Loop until the user enters QUIT
     while sentence.upper() != "QUIT":
     
+        if sentence ==  "":
+            sentence = input("").strip()
+            continue
+
         command = sentence.split()[0]
 
         match command.upper():
